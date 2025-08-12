@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parlay Calculator</title>
+  <meta name="theme-color" content="#0f1220" />
+  <style>
+    :root{--gap:12px;--radius:14px}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;margin:0;background:#0f1220;color:#e9ecf1}
+    header{position:sticky;top:0;background:linear-gradient(180deg,#11152a,#0f1220);padding:18px 16px;border-bottom:1px solid #1e2442;z-index:10}
+    h1{font-size:20px;margin:0}
+    main{padding:16px;max-width:880px;margin:0 auto}
+    .card{background:#151a34;border:1px solid #232a4d;border-radius:var(--radius);padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    .row{display:flex;gap:var(--gap);flex-wrap:wrap}
+    .field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:120px}
+    label{font-size:12px;color:#a9b2d9}
+    input[type="number"],input[type="text"]{background:#0e1330;border:1px solid #2a3569;color:#e9ecf1;border-radius:10px;padding:10px 12px;font-size:16px;width:100%}
+    input[type="checkbox"]{width:22px;height:22px}
+    button{appearance:none;border:none;background:#5a6cff;color:white;padding:10px 14px;border-radius:12px;font-weight:600;cursor:pointer}
+    button.secondary{background:#243069;color:#cbd6ff;border:1px solid #3b4aa0}
+    table{width:100%;border-collapse:separate;border-spacing:0 10px}
+    th,td{text-align:left;padding:8px 10px}
+    thead th{font-size:12px;color:#9fb0ff;font-weight:600}
+    tbody tr{background:#121739;border:1px solid #273176}
+    tbody td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+    tbody td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+    .pill{font-size:12px;padding:4px 8px;border-radius:999px;background:#1a2250;color:#cfe0ff;border:1px solid #2a3a8b}
+    .muted{color:#a9b2d9}
+    .results{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--gap)}
+    .stat{background:#121739;border:1px solid #273176;border-radius:12px;padding:12px}
+    .stat h3{margin:0 0 6px 0;font-size:12px;color:#9fb0ff}
+    .stat .val{font-size:18px;font-weight:700}
+    footer{padding:24px;color:#8e98bf;text-align:center}
+    .del{background:#2b355f}
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Parlay Calculator</h1>
+  </header>
+  <main>
+    <section class="card" id="stakeCard" aria-label="Stake and actions">
+      <div class="row">
+        <div class="field" style="flex:2">
+          <label for="stake">Stake ($)</label>
+          <input id="stake" type="number" step="0.01" min="0" value="100" inputmode="decimal" />
+        </div>
+        <div class="field" style="flex:1;align-items:flex-start;justify-content:flex-end">
+          <label>&nbsp;</label>
+          <div class="actions">
+            <button id="addLeg" aria-label="Add a new leg">+ Add Leg</button>
+            <button class="secondary" id="clearAll" aria-label="Clear all legs">Clear All</button>
+          </div>
+        </div>
+      </div>
+      <p class="muted" style="margin:10px 2px 0">Enter American odds (e.g., +150 or -120). Toggle include to skip legs without deleting.</p>
+    </section>
+
+    <section style="height:12px"></section>
+
+    <section class="card" aria-label="Legs table">
+      <table role="table" aria-label="Parlay legs">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">American Odds</th>
+            <th scope="col">Include</th>
+            <th scope="col">Decimal</th>
+            <th scope="col">Implied Prob</th>
+            <th scope="col" aria-hidden="true"></th>
+          </tr>
+        </thead>
+        <tbody id="legs"></tbody>
+      </table>
+      <div class="row" style="margin-top:8px">
+        <span class="pill" id="legsCount">0 legs</span>
+      </div>
+    </section>
+
+    <section style="height:12px"></section>
+
+    <section class="results" id="results" aria-label="Results">
+      <div class="stat"><h3>Total Decimal Odds</h3><div class="val" id="totalDec">—</div></div>
+      <div class="stat"><h3>Total American Odds</h3><div class="val" id="totalAm">—</div></div>
+      <div class="stat"><h3>Payout ($)</h3><div class="val" id="payout">—</div></div>
+      <div class="stat"><h3>Profit ($)</h3><div class="val" id="profit">—</div></div>
+      <div class="stat"><h3>Break-even Prob</h3><div class="val" id="breakeven">—</div></div>
+      <div class="stat"><h3>Product of Leg Implied Probs</h3><div class="val" id="comboProb">—</div></div>
+    </section>
+
+    <footer>
+      Tip: Open this file on your phone and use “Add to Home Screen” for 1-tap access.
+    </footer>
+  </main>
+
+  <script>
+    const legsTbody = document.getElementById('legs');
+    const addLegBtn = document.getElementById('addLeg');
+    const clearAllBtn = document.getElementById('clearAll');
+    const stakeEl = document.getElementById('stake');
+    const legsCount = document.getElementById('legsCount');
+
+    const totalDecEl = document.getElementById('totalDec');
+    const totalAmEl = document.getElementById('totalAm');
+    const payoutEl = document.getElementById('payout');
+    const profitEl = document.getElementById('profit');
+    const breakevenEl = document.getElementById('breakeven');
+    const comboProbEl = document.getElementById('comboProb');
+
+    function amToDec(am){
+      if (Number.isNaN(am) || am === 0) return NaN;
+      return am > 0 ? 1 + am/100 : 1 + 100/Math.abs(am);
+    }
+    function impliedProbFromAm(am){
+      if (Number.isNaN(am) || am === 0) return NaN;
+      return am > 0 ? 100/(am+100) : Math.abs(am)/(Math.abs(am)+100);
+    }
+    function decToAm(dec){
+      if (!isFinite(dec) || dec <= 1) return NaN;
+      return dec >= 2 ? (dec-1)*100 : -100/(dec-1);
+    }
+
+    function formatNum(n, dp=2){
+      if (!isFinite(n)) return '—';
+      return Number(n).toLocaleString(undefined,{minimumFractionDigits:dp, maximumFractionDigits:dp});
+    }
+
+    function update(){
+      const rows = [...legsTbody.querySelectorAll('tr')];
+      let productDec = 1;
+      let productProb = 1;
+
+      rows.forEach(row => {
+        const oddsEl = row.querySelector('.odds');
+        const includeEl = row.querySelector('.include');
+        const decEl = row.querySelector('.dec');
+        const probEl = row.querySelector('.prob');
+        const am = parseFloat(oddsEl.value);
+        const include = includeEl.checked;
+        const dec = amToDec(am);
+        const prob = impliedProbFromAm(am);
+
+        decEl.textContent = isFinite(dec) ? formatNum(dec, 3) : '—';
+        probEl.textContent = isFinite(prob) ? formatNum(prob, 2) + '%' : '—';
+
+        if (include && isFinite(dec)) productDec *= dec; else productDec *= 1;
+        if (include && isFinite(prob)) productProb *= (prob/100); else productProb *= 1;
+      });
+
+      const stake = parseFloat(stakeEl.value) || 0;
+      const payout = stake * productDec;
+      const profit = payout - stake;
+      const breakeven = 100 / productDec; // %
+      const totalAm = decToAm(productDec);
+
+      totalDecEl.textContent = productDec === 1 ? '—' : formatNum(productDec, 3);
+      totalAmEl.textContent  = isFinite(totalAm) ? (totalAm>=0?'+':'') + formatNum(totalAm, 0) : '—';
+      payoutEl.textContent   = productDec === 1 ? '—' : formatNum(payout, 2);
+      profitEl.textContent   = productDec === 1 ? '—' : formatNum(profit, 2);
+      breakevenEl.textContent= productDec === 1 ? '—' : formatNum(breakeven, 2) + '%';
+      comboProbEl.textContent= formatNum(productProb*100, 2) + '%';
+
+      legsCount.textContent = rows.length + (rows.length===1?' leg':' legs');
+      persist();
+    }
+
+    function persist(){
+      const data = {
+        stake: stakeEl.value,
+        legs: [...legsTbody.querySelectorAll('tr')].map(tr => ({
+          am: tr.querySelector('.odds').value,
+          include: tr.querySelector('.include').checked
+        }))
+      };
+      try { localStorage.setItem('parlay_calc_v1', JSON.stringify(data)); } catch {}
+    }
+    function restore(){
+      const raw = localStorage.getItem('parlay_calc_v1');
+      if (!raw) { addLeg(); addLeg(); addLeg(); return; }
+      try{
+        const data = JSON.parse(raw);
+        stakeEl.value = data.stake ?? 100;
+        legsTbody.innerHTML = '';
+        (data.legs ?? []).forEach(item => addLeg(item.am, item.include));
+        if ((data.legs ?? []).length === 0){ addLeg(); }
+      }catch{
+        addLeg();
+      }
+      update();
+    }
+
+    function addLeg(amOdds = '', include = true){
+      const idx = legsTbody.children.length + 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="muted">${idx}</td>
+        <td><input class="odds" type="number" step="1" placeholder="e.g. +150 or -120" value="${amOdds}" inputmode="numeric" /></td>
+        <td style="text-align:center"><input class="include" type="checkbox" ${include? 'checked':''} aria-label="Include leg ${idx}" /></td>
+        <td class="dec">—</td>
+        <td class="prob">—</td>
+        <td style="text-align:right"><button class="del" title="Delete leg ${idx}" aria-label="Delete leg ${idx}">Delete</button></td>
+      `;
+      legsTbody.appendChild(tr);
+      wireRow(tr);
+      update();
+    }
+
+    function renumber(){
+      [...legsTbody.querySelectorAll('tr')].forEach((tr,i)=>{
+        tr.querySelector('td').textContent = i+1;
+      });
+    }
+
+    function wireRow(tr){
+      tr.querySelector('.odds').addEventListener('input', update);
+      tr.querySelector('.include').addEventListener('change', update);
+      tr.querySelector('.del').addEventListener('click', () => {
+        tr.remove();
+        renumber();
+        update();
+      });
+    }
+
+    addLegBtn.addEventListener('click', () => addLeg());
+    clearAllBtn.addEventListener('click', () => {
+      if (!confirm('Clear all legs?')) return;
+      legsTbody.innerHTML = '';
+      update();
+    });
+    stakeEl.addEventListener('input', update);
+
+    // Boot
+    restore();
+  </script>
+</body>
+</html>
