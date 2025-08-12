@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parlay Calculator</title>
+  <meta name="theme-color" content="#1a1a1a" />
+  <style>
+    :root{--gap:12px;--radius:14px}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;margin:0;background: #000000;color: #ffffff;top:0;background:linear-gradient(180deg,#222222,#1a1a1a);padding:18px 16px;border-bottom:1px solid #1e2442;z-index:10}
+    h1{font-size:20px;margin:0}
+    main{padding:16px;max-width:880px;margin:0 auto}
+    .card{background:#2a2a2a;border:1px solid #232a4d;border-radius:var(--radius);padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    .row{display:flex;gap:var(--gap);flex-wrap:wrap}
+    .field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:140px}
+    label{font-size:12px;color: #ffffff}
+    input[type="number"],select{background:#2e2e2e;border:1px solid #2a3569;color: #ffffff;border-radius:10px;padding:10px 12px;font-size:16px;width:100%}
+    input[type="checkbox"]{width:22px;height:22px}
+    button{appearance:none;border:none;background:#5a6cff;color:white;padding:10px 14px;border-radius:12px;font-weight:600;cursor:pointer}
+    button.secondary{background:#243069;color: #ffffff;border:1px solid #3b4aa0}
+    table{width:100%;border-collapse:separate;border-spacing:0 10px}
+    th,td{text-align:left;padding:8px 10px}
+    thead th{font-size:12px;color: #ffffff;font-weight:600}
+    tbody tr{background:#333333;border:1px solid #273176}
+    tbody td:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+    tbody td:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+    .pill{font-size:12px;padding:4px 8px;border-radius:999px;background:#444444;color: #ffffff;border:1px solid #2a3a8b}
+    .muted{color: #ffffff}
+    .results{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--gap)}
+    .stat{background:#333333;border:1px solid #273176;border-radius:12px;padding:12px}
+    .stat h3{margin:0 0 6px 0;font-size:12px;color: #ffffff}
+    .stat .val{font-size:18px;font-weight:700}
+    footer{padding:24px;color: #ffffff;text-align:center}
+    .del{background:#2b355f}
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .hint{font-size:12px;color: #ffffff;margin:6px 0 0}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Parlay Calculator</h1>
+  </header>
+  <main>
+    <section class="card" aria-label="Global settings">
+      <div class="row">
+        <div class="field" style="flex:1.3">
+          <label for="stake">Stake ($)</label>
+          <input id="stake" type="number" step="0.01" min="0" value="100" inputmode="decimal" />
+        </div>
+        <div class="field" style="flex:1">
+          <label for="oddsType">Odds Type</label>
+          <select id="oddsType">
+            <option value="american" selected>American (+150 / -120)</option>
+            <option value="decimal">Decimal (1.80 / 2.35)</option>
+          </select>
+          <div id="formatHint" class="hint">Enter odds like +150 or -120</div>
+        </div>
+        <div class="field" style="flex:1;align-items:flex-start;justify-content:flex-end">
+          <label>&nbsp;</label>
+          <div class="actions">
+            <button id="addLeg" aria-label="Add a new leg">+ Add Leg</button>
+            <button class="secondary" id="clearAll" aria-label="Clear all legs">Clear All</button>
+          </div>
+        </div>
+      </div>
+      <p class="muted" style="margin:10px 2px 0">
+        Use the dropdown to choose <strong>American</strong> or <strong>Decimal</strong> input for all legs. Toggle “Include” to skip a leg without deleting.
+      </p>
+    </section>
+
+    <section style="height:12px"></section>
+
+    <section class="card" aria-label="Legs table">
+      <table role="table" aria-label="Parlay legs">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col"><span id="oddsColHeader">Odds (American)</span></th>
+            <th scope="col">Include</th>
+            <th scope="col">Decimal</th>
+            <th scope="col">Implied Prob</th>
+            <th scope="col" aria-hidden="true"></th>
+          </tr>
+        </thead>
+        <tbody id="legs"></tbody>
+      </table>
+      <div class="row" style="margin-top:8px">
+        <span class="pill" id="legsCount">0 legs</span>
+      </div>
+    </section>
+
+    <section style="height:12px"></section>
+
+    <section class="results" aria-label="Results">
+      <div class="stat"><h3>Total Decimal Odds</h3><div class="val" id="totalDec">—</div></div>
+      <div class="stat"><h3>Total American Odds</h3><div class="val" id="totalAm">—</div></div>
+      <div class="stat"><h3>Payout ($)</h3><div class="val" id="payout">—</div></div>
+      <div class="stat"><h3>Profit ($)</h3><div class="val" id="profit">—</div></div>
+      <div class="stat"><h3>Break-even Prob</h3><div class="val" id="breakeven">—</div></div>
+      <div class="stat"><h3>Product of Leg Implied Probs</h3><div class="val" id="comboProb">—</div></div>
+      <div class="stat"><h3>Chance Rating</h3><div class="val" id="chanceRating">—</div></div>
+
+    </section>
+
+    <footer>
+      Tip: Open this file on your phone and use “Add to Home Screen” for 1-tap access.
+    </footer>
+  </main>
+
+  <script>
+    // Elements
+    const legsTbody   = document.getElementById('legs');
+    const addLegBtn   = document.getElementById('addLeg');
+    const clearAllBtn = document.getElementById('clearAll');
+    const stakeEl     = document.getElementById('stake');
+    const oddsTypeEl  = document.getElementById('oddsType');
+    const legsCount   = document.getElementById('legsCount');
+    const oddsColHeader = document.getElementById('oddsColHeader');
+    const formatHint  = document.getElementById('formatHint');
+
+    const totalDecEl  = document.getElementById('totalDec');
+    const totalAmEl   = document.getElementById('totalAm');
+    const payoutEl    = document.getElementById('payout');
+    const profitEl    = document.getElementById('profit');
+    const breakevenEl = document.getElementById('breakeven');
+    const comboProbEl = document.getElementById('comboProb');
+
+    // Conversions
+    function amToDec(am){
+      if (Number.isNaN(am) || am === 0) return NaN;
+      return am > 0 ? 1 + am/100 : 1 + 100/Math.abs(am);
+    }
+    function impliedProbFromAm(am){
+      if (Number.isNaN(am) || am === 0) return NaN;
+      // Return percentage (0-100), not decimal (0-1)
+      return am > 0 ? (10000/(am+100)) : (Math.abs(am)*100/(Math.abs(am)+100));
+    }
+    function decToAm(dec){
+      if (!isFinite(dec) || dec <= 1) return NaN;
+      return dec >= 2 ? (dec-1)*100 : -100/(dec-1);
+    }
+
+    // Formatting
+    function formatNum(n, dp=2){
+      if (!isFinite(n)) return '—';
+      return Number(n).toLocaleString(undefined,{minimumFractionDigits:dp, maximumFractionDigits:dp});
+    }
+
+    // Core update
+    function update(){
+      const rows = [...legsTbody.querySelectorAll('tr')];
+      const oddsType = oddsTypeEl.value; // 'american' or 'decimal'
+      let productDec = 1;
+      let productProb = 1;
+
+      rows.forEach(row => {
+        const oddsEl  = row.querySelector('.odds');
+        const includeEl = row.querySelector('.include');
+        const decEl   = row.querySelector('.dec');
+        const probEl  = row.querySelector('.prob');
+        const include = includeEl.checked;
+        const raw = parseFloat(oddsEl.value);
+
+        // Derive per-leg decimal & implied prob based on global odds type
+        let dec = NaN, probPct = NaN;
+        if (oddsType === 'american'){
+          dec = amToDec(raw);
+          probPct = impliedProbFromAm(raw);
+        } else {
+          // Decimal input must be > 1 to be valid odds
+          dec = (isFinite(raw) && raw > 1) ? raw : NaN;
+          probPct = isFinite(dec) ? (100/dec) : NaN;
+        }
+
+        decEl.textContent  = isFinite(dec) ? formatNum(dec, 3) : '—';
+        probEl.textContent = isFinite(probPct) ? formatNum(probPct, 2) + '%' : '—';
+
+        if (include && isFinite(dec))  productDec *= dec;
+        if (include && isFinite(probPct)) productProb *= (probPct/100);
+      });
+
+      const stake = parseFloat(stakeEl.value) || 0;
+      const payout = stake * productDec;
+      const profit = payout - stake;
+      const breakeven = 100 / productDec; // %
+      const totalAm = decToAm(productDec);
+
+      totalDecEl.textContent = productDec === 1 ? '—' : formatNum(productDec, 3);
+      totalAmEl.textContent  = isFinite(totalAm) ? (totalAm>=0?'+':'') + formatNum(totalAm, 0) : '—';
+      payoutEl.textContent   = productDec === 1 ? '—' : formatNum(payout, 2);
+      profitEl.textContent   = productDec === 1 ? '—' : formatNum(profit, 2);
+      breakevenEl.textContent= productDec === 1 ? '—' : formatNum(breakeven, 2) + '%';
+      comboProbEl.textContent= formatNum(productProb*100, 2) + '%';
+      // Chance Rating calculation
+      const chanceValue = productProb * 100;
+      const ratingEl = document.getElementById('chanceRating');
+      let ratingText = '—';
+      let ratingColor = '#ffffff'; // default white
+
+      if (chanceValue > 60) {
+        ratingText = 'High chance';
+        ratingColor = 'green';
+      } else if (chanceValue >= 35) {
+        ratingText = 'Medium chance';
+        ratingColor = 'lightgreen';
+      } else if (chanceValue >= 15) {
+        ratingText = 'Low chance';
+        ratingColor = 'yellow';
+      } else {
+        ratingText = 'Very low chance';
+        ratingColor = 'red';
+      }
+
+      ratingEl.textContent = ratingText;
+      ratingEl.style.color = ratingColor;
+
+
+      legsCount.textContent = rows.length + (rows.length===1?' leg':' legs');
+      persist();
+    }
+
+    // UI helpers
+    function setOddsTypeUI(){
+      const type = oddsTypeEl.value;
+      oddsColHeader.textContent = type === 'american' ? 'Odds (American)' : 'Odds (Decimal)';
+      formatHint.textContent = type === 'american'
+        ? 'Enter odds like +150 or -120'
+        : 'Enter odds like 1.80 or 2.35 (must be > 1.00)';
+      // Optional: clear invalid entries when switching to decimal
+      [...legsTbody.querySelectorAll('.odds')].forEach(inp => {
+        if (type === 'decimal' && inp.value && parseFloat(inp.value) <= 1){
+          // keep user input; we just won't compute until valid
+        }
+      });
+      update();
+    }
+
+    function persist(){
+      const data = {
+        stake: stakeEl.value,
+        oddsType: oddsTypeEl.value,
+        legs: [...legsTbody.querySelectorAll('tr')].map(tr => ({
+          v: tr.querySelector('.odds').value,
+          inc: tr.querySelector('.include').checked
+        }))
+      };
+      try { localStorage.setItem('parlay_calc_v2', JSON.stringify(data)); } catch {}
+    }
+    function restore(){
+      const raw = localStorage.getItem('parlay_calc_v2');
+      if (!raw) { addLeg(); addLeg(); addLeg(); return; }
+      try{
+        const data = JSON.parse(raw);
+        stakeEl.value = data.stake ?? 100;
+        oddsTypeEl.value = data.oddsType ?? 'american';
+        legsTbody.innerHTML = '';
+        (data.legs ?? []).forEach(item => addLeg(item.v, item.inc));
+        if ((data.legs ?? []).length === 0){ addLeg(); }
+      }catch{
+        addLeg();
+      }
+      setOddsTypeUI();
+      update();
+    }
+
+    function addLeg(value = '', include = true){
+      const idx = legsTbody.children.length + 1;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="muted">${idx}</td>
+        <td><input class="odds" type="number" step="0.01" placeholder="Enter odds" value="${value}" inputmode="decimal" /></td>
+        <td style="text-align:center"><input class="include" type="checkbox" ${include? 'checked':''} aria-label="Include leg ${idx}" /></td>
+        <td class="dec">—</td>
+        <td class="prob">—</td>
+        <td style="text-align:right"><button class="del" title="Delete leg ${idx}" aria-label="Delete leg ${idx}">Delete</button></td>
+      `;
+      legsTbody.appendChild(tr);
+      wireRow(tr);
+      update();
+    }
+
+    function renumber(){
+      [...legsTbody.querySelectorAll('tr')].forEach((tr,i)=>{
+        tr.querySelector('td').textContent = i+1;
+      });
+    }
+
+    function wireRow(tr){
+      tr.querySelector('.odds').addEventListener('input', update);
+      tr.querySelector('.include').addEventListener('change', update);
+      tr.querySelector('.del').addEventListener('click', () => {
+        tr.remove();
+        renumber();
+        update();
+      });
+    }
+
+    // Events
+    addLegBtn.addEventListener('click', () => addLeg());
+    clearAllBtn.addEventListener('click', () => {
+      if (!confirm('Clear all legs?')) return;
+      legsTbody.innerHTML = '';
+      update();
+    });
+    stakeEl.addEventListener('input', update);
+    oddsTypeEl.addEventListener('change', setOddsTypeUI);
+
+    // Boot
+    restore();
+  </script>
+</body>
+</html>
